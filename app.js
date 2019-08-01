@@ -3,6 +3,7 @@ const Koa = require('koa2')
 const axios = require('axios')
 const cheerio = require('cheerio')
 const Router = require('koa-router')
+const mongoose = require('mongoose')
 
 const BenchMark = require('benchmark')
 const bm = require('./test/bm')
@@ -10,6 +11,50 @@ const bm = require('./test/bm')
 const app = new Koa()
 const router = new Router()
 const suite = new BenchMark.Suite
+mongoose.connect('mongodb://localhost/koa')
+const db = mongoose.connection
+db.on('error', () => {
+    console.log('error')
+})
+db.on('open', () => {
+    console.log('the mongodb is connected')
+    const PeoPle = mongoose.Schema({
+        name: String,
+        age: Number,
+        love: String,
+        course: [String]
+    })
+    const Cat = mongoose.model('Cat', {
+        name: String,
+        breed: String,
+        age: Number,
+        master: String,
+        sex: String
+    }) 
+    // Cat.methods.speak = function(content) {
+    //     console.log(`${this.name} now speaking ${content}`)
+    // }
+    const Pp = mongoose.model('Pp', PeoPle)
+    const p1 = new Pp({name: "a", age: 12, love: "apple", course: ["math", "english", "chinese"]})
+    const p2 = new Pp({name: "b", age: 14, love: "banana", course: ["math", "english", "chinese"]})
+    const p3 = new Pp({name: "c", age: 16, love: "orange", course: ["math", "english", "chinese"]})
+    const p4 = new Pp({name: "d", age: 18, love: "kiwi", course: ["math", "english", "chinese"]})
+    const siam = new Cat({name: 'gray', breed: 'Siam', age: 1, master: 'buleak', sex: 'male'})
+    const ragdoll = new Cat({name: 'big', breed: 'Ragdoll', age: 0.5, master: 'buleak', sex: 'female'})
+    const maine = new Cat({name: 'black', breed: 'Maine', age: 4, master: 'buleak', sex: 'female'})
+    const norwegianForest = new Cat({name: 'write', breed: 'Norwegian Forest', age: 1, master: 'buleak', sex: 'male'})
+    p1.save()
+    p2.save()
+    p3.save()
+    p4.save()
+    siam.save()
+    maine.save()
+    ragdoll.save()
+    norwegianForest.save()
+    // siam.speak()   
+    Cat.find((err, data) => { console.log(data) }) 
+    Cat.find({name: 'siam'}, (err,data) => {console.log(data)})
+})
 
 app.use(async (ctx, next) => {
     await next()
@@ -21,21 +66,35 @@ router.get('/', async (ctx, next) => {
 })
 
 let items;
-router.get('/crawler', async (ctx, next) => {
-    axios.get('https://cnodejs.org/').then((val) => {
-        let $ = cheerio.load(val.data);
-        items = []
-        $('#topic_list .cell').each((index, value, arr) => {
-            let headImg = $(value).find('.user_avatar.pull-left img').attr('src'),
-                headName = $(value).find('.user_avatar.pull-left img').attr('title'),
-                headTitle = $(value).find('.topic_title').attr('title');
-            items.push({ headImg, headName, headTitle })
+const crawler = (url, path, each) => {
+    router.get(url, async (ctx, next) => {
+        axios.get(path).then((val) => {
+            let $ = cheerio.load(val.data);
+            items = []
+            each($)
+        }).catch((err) => {
+            console.log(`error: ${err}`)
         })
-    }).catch((err) => {
-        console.log(`error: ${err}`)
+        ctx.body = items
     })
-    ctx.body = items
-})
+}
+const eachFunction = ($) => {
+    $('#topic_list .cell').each((index, value, arr) => {
+        let headImg = $(value).find('.user_avatar.pull-left img').attr('src'),
+            headName = $(value).find('.user_avatar.pull-left img').attr('title'),
+            headTitle = $(value).find('.topic_title').attr('title');
+        items.push({ headImg, headName, headTitle })
+    })
+}
+crawler('/crawler', 'https://cnodejs.org/', eachFunction)
+const vikingComic = ($) => {
+    $('.contentimg>img').each((index, value, arr) => {
+        let img = $(value).attr('src');
+        items.push(img)
+    })
+}
+crawler('/pirate', 'http://www.hanhuaba.com/comic/1391/30900.html', vikingComic)
+
 
 let baseUrl = 'https://cnodejs.org/';
 let textList;
@@ -85,12 +144,12 @@ router.get('/fibonacci', async (ctx, next) => {
 
 let num = '100'
 
-suite.add('+', () => {bm.init1(num)})
-.add('parseInt', () => {bm.init2(num)})
-.add('number', () => {bm.init3(num)})
-.on('cycle', (e) => {console.log(String(e.target))})
-.on('complete', function() {console.log(`Faster is ${this.filter('faster').map('name')}`)})
-.run({'async': true})
+// suite.add('+', () => {bm.init1(num)})
+// .add('parseInt', () => {bm.init2(num)})
+// .add('number', () => {bm.init3(num)})
+// .on('cycle', (e) => {console.log(String(e.target))})
+// .on('complete', function() {console.log(`Faster is ${this.filter('faster').map('name')}`)})
+// .run({'async': true})
 
 app.use(router.routes()).use(router.allowedMethods())
 
